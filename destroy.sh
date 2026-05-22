@@ -1,4 +1,4 @@
 #!/bin/bash
 set -euo pipefail
 
-terraform -chdir=01-vmss destroy -auto-approve
+terraform -chdir=01-mig destroy -auto-approve

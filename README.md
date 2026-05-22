@@ -1,35 +1,37 @@
-# Azure VM Scale Set
+# GCP Managed Instance Group
 
-This project demonstrates a minimal Azure VM Scale Set (VMSS) deployment using Terraform. It provisions a fleet of Apache web servers behind an Azure Application Gateway, with each instance displaying its own metadata — private IP, VM name, availability zone, and VM size — on a styled page.
+This project demonstrates a minimal GCP Managed Instance Group (MIG) deployment using Terraform. It provisions a fleet of Apache web servers behind a GCP HTTP(S) Load Balancer, with each instance displaying its own metadata — private IP, instance name, zone, and machine type — on a styled page.
 
-Instances run on Standard_B1s Ubuntu VMs and are never directly reachable from the internet. All inbound traffic flows through the Application Gateway. A NAT Gateway provides outbound internet access for package installation. Azure Monitor autoscale rules drive automatic scale-out and scale-in between 1 and 6 instances based on CPU utilization.
+Instances run on e2-micro Ubuntu VMs and are never directly reachable from the internet. All inbound traffic flows through the global HTTP load balancer. Cloud NAT provides outbound internet access for package installation. A regional autoscaler drives automatic scale-out and scale-in between 1 and 6 instances based on CPU utilization.
 
-This solution is ideal for understanding the fundamentals of Azure VM Scale Sets without the complexity of application-specific configuration. It uses no Packer, no custom image, and deploys in a single Terraform phase.
+This solution is ideal for understanding the fundamentals of GCP Managed Instance Groups without the complexity of application-specific configuration. It uses no Packer, no custom image, and deploys in a single Terraform phase.
 
 ## Prerequisites
 
-* [An Azure Account](https://portal.azure.com/)
-* [Install Azure CLI](https://learn.microsoft.com/en-us/cli/azure/install-azure-cli)
+* [A GCP Account](https://console.cloud.google.com/)
+* [Install Google Cloud CLI](https://cloud.google.com/sdk/docs/install)
 * [Install Latest Terraform](https://developer.hashicorp.com/terraform/install)
+* A service account key file saved as `credentials.json` in the project root
 
-If this is your first time watching our content, we recommend starting with this video: [Azure + Terraform: Easy Setup](https://youtu.be/BCMQo0CB9wk). It provides a step-by-step guide to properly configure Terraform and the Azure CLI.
+If this is your first time watching our content, we recommend starting with this video: [GCP + Terraform: Easy Setup](https://youtu.be/BCMQo0CB9wk). It provides a step-by-step guide to properly configure Terraform and the Google Cloud CLI.
 
 ---
 
 ## Download this Repository
 
 ```bash
-git clone https://github.com/mamonaco1973/azure-vmss.git
-cd azure-vmss
+git clone https://github.com/mamonaco1973/gcp-mig.git
+cd gcp-mig
 ```
 
 ---
 
-## Authenticate to Azure
+## Authenticate to GCP
+
+Place your service account key at the project root:
 
 ```bash
-az login
-az account set --subscription "<your-subscription-id>"
+cp /path/to/your-key.json ./credentials.json
 ```
 
 ---
@@ -42,7 +44,7 @@ Run [check_env](check_env.sh) to validate your environment, then run [apply](app
 ./apply.sh
 ```
 
-[apply.sh](apply.sh) runs `terraform init` and `terraform apply`, then automatically calls [validate.sh](validate.sh) to confirm the deployment is healthy. Note that the Application Gateway takes 5-8 minutes to provision.
+[apply.sh](apply.sh) runs `terraform init` and `terraform apply`, then automatically calls [validate.sh](validate.sh) to confirm the deployment is healthy. Note that the global HTTP load balancer takes 5-8 minutes to propagate after creation.
 
 ---
 
@@ -51,26 +53,23 @@ Run [check_env](check_env.sh) to validate your environment, then run [apply](app
 When the deployment completes, the following resources are created:
 
 - **Networking:**
-  - A VNet (10.0.0.0/16) in centralus with two subnets:
-    - `vmss-subnet` (10.0.1.0/24) — VMSS instances
-    - `appgw-subnet` (10.0.2.0/24) — Application Gateway (dedicated, required by Azure)
-  - NAT Gateway with a static public IP for instance outbound access
+  - A custom VPC (`mig-vpc`) in us-central1 with one subnet:
+    - `mig-subnet` (10.0.1.0/24) — MIG instances
+  - Cloud Router and Cloud NAT for instance outbound access
 
 - **Security:**
-  - NSG on the VMSS subnet: allows inbound port 80
-  - NSG on the App Gateway subnet: allows port 80 and gateway manager ports 65200-65535
+  - Firewall rule allowing GCP health check and LB proxy ranges (130.211.0.0/22, 35.191.0.0/16) to port 80 on tagged instances
 
-- **Application Gateway:**
-  - Standard_v2, zone-redundant (zones 1 and 2)
-  - Static public IP with a unique DNS label (`vmss-appgw-<random>.centralus.cloudapp.azure.com`)
-  - HTTP health probe on `/` with 10-second intervals
+- **HTTP Load Balancer:**
+  - Global static IP address
+  - HTTP health check on `/` with 10-second intervals
   - Layer 7 per-request load balancing — even distribution across instances
 
-- **VM Scale Set:**
-  - Ubuntu 22.04 LTS, Standard_B1s, spread across availability zones 1 and 2
+- **Managed Instance Group:**
+  - Ubuntu 22.04 LTS, e2-micro, regional MIG spread across all us-central1 zones
   - min 1, desired 4, max 6 instances
-  - Apache installed via cloud-init; displays Azure IMDS metadata page
-  - Azure Monitor autoscale driving scale-out and scale-in on CPU
+  - Apache installed via startup script; displays GCP metadata page
+  - Regional autoscaler driving scale-out and scale-in on CPU
 
 ---
 
@@ -87,25 +86,29 @@ The long scale-in window (1 hour) prevents instances from being removed during d
 
 ### Validate the Deployment
 
-[validate.sh](validate.sh) is called automatically by [apply.sh](apply.sh). It polls the Application Gateway until it responds, then samples 6 responses to confirm load balancing is working. Because the Application Gateway is Layer 7, each request is routed independently — different IP addresses across requests confirm even distribution.
+[validate.sh](validate.sh) is called automatically by [apply.sh](apply.sh). It polls the load balancer until it responds, then samples 10 responses to confirm load balancing is working. Because the LB is Layer 7, each request is routed independently — different IP addresses across requests confirm even distribution.
 
 ```
-NOTE: App Gateway endpoint: http://vmss-appgw-12345.centralus.cloudapp.azure.com
-NOTE: Waiting for HTTP response from Application Gateway...
-NOTE: Application Gateway is responding.
-NOTE: Sampling App Gateway responses...
+NOTE: Load balancer endpoint: http://34.120.x.x
+NOTE: Waiting for HTTP response from load balancer...
+NOTE: Load balancer is responding.
+NOTE: Sampling load balancer responses...
 
-  [1] 10.0.1.4
-  [2] 10.0.1.6
-  [3] 10.0.1.5
-  [4] 10.0.1.7
-  [5] 10.0.1.4
-  [6] 10.0.1.6
+  [1] 10.0.1.3
+  [2] 10.0.1.5
+  [3] 10.0.1.4
+  [4] 10.0.1.6
+  [5] 10.0.1.3
+  [6] 10.0.1.5
+  [7] 10.0.1.4
+  [8] 10.0.1.6
+  [9] 10.0.1.3
+  [10] 10.0.1.5
 
 =================================================================================
-  VM Scale Set — Deployment validated!
+  Managed Instance Group — Deployment validated!
 =================================================================================
-  LB : http://vmss-appgw-12345.centralus.cloudapp.azure.com
+  LB : http://34.120.x.x
 =================================================================================
 ```
 
@@ -119,4 +122,4 @@ When you are finished testing, you can remove all provisioned resources with:
 ./destroy.sh
 ```
 
-This will use Terraform to delete the resource group and everything inside it — VNet, NAT Gateway, Application Gateway, VM Scale Set, autoscale settings, NSGs, and all associated public IPs.
+This will use Terraform to delete all provisioned resources — VPC, Cloud NAT, HTTP load balancer, Managed Instance Group, autoscaler, firewall rules, and the global static IP.

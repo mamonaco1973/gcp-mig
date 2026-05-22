@@ -1,38 +1,47 @@
 #!/bin/bash
-set -euo pipefail
+# ================================================================================
+# check_env.sh
+# Validates that required CLI tools are installed and credentials.json is
+# present before attempting a terraform apply.
+# ================================================================================
 
-# ================================================================================
-# Environment Check
-# Validates required tools are installed and Azure credentials are active
-# ================================================================================
+set -euo pipefail
 
 # ------------------------------------------------------------------------------
 # Tool Checks
 # ------------------------------------------------------------------------------
 
-echo "NOTE: Validating that required commands are found in your PATH."
+echo "NOTE: Validating that required commands are found in the PATH."
 
-for cmd in az terraform; do
+commands=("gcloud" "terraform")
+all_found=true
+
+for cmd in "${commands[@]}"; do
   if ! command -v "$cmd" &>/dev/null; then
-    echo "ERROR: $cmd is not found in PATH."
-    exit 1
+    echo "ERROR: $cmd is not found in the current PATH."
+    all_found=false
+  else
+    echo "NOTE: $cmd is found in the current PATH."
   fi
-  echo "NOTE: $cmd is found in the current PATH."
 done
+
+if [ "$all_found" = false ]; then
+  echo "ERROR: One or more required commands are missing."
+  exit 1
+fi
 
 echo "NOTE: All required commands are available."
 
 # ------------------------------------------------------------------------------
-# Azure Credentials
-# az account show is the cheapest way to confirm az login has been run
-# and the token has not expired
+# Credentials
+# The GCP provider and all Terraform resources authenticate via this key file.
 # ------------------------------------------------------------------------------
 
-echo "NOTE: Checking Azure CLI connection."
-
-if ! az account show &>/dev/null; then
-  echo "ERROR: Azure credentials are not configured. Run 'az login' first."
+if [[ ! -f "./credentials.json" ]]; then
+  echo "ERROR: ./credentials.json not found. Generate a service account key and place it here."
   exit 1
 fi
 
-echo "NOTE: Successfully connected to Azure."
+echo "NOTE: credentials.json found."
+gcloud auth activate-service-account --key-file="./credentials.json"
+echo "NOTE: Service account activated successfully."
