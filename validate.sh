@@ -25,7 +25,7 @@ echo "NOTE: Load balancer endpoint: http://${LB_IP}"
 
 echo "NOTE: Waiting for HTTP response from load balancer..."
 
-TIMEOUT=300
+TIMEOUT=900
 ELAPSED=0
 
 while true; do

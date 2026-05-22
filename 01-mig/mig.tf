@@ -103,7 +103,7 @@ resource "google_compute_region_autoscaler" "main" {
 
   autoscaling_policy {
     max_replicas = 6
-    min_replicas = 1
+    min_replicas = 4
 
     # 2-minute cooldown prevents a second scale-out before the first wave of
     # new instances has absorbed the load
@@ -111,15 +111,6 @@ resource "google_compute_region_autoscaler" "main" {
 
     cpu_utilization {
       target = 0.6
-    }
-
-    # Allow at most 1 instance to be removed within any 1-hour window.
-    # Prevents aggressive scale-in during demos and brief quiet periods.
-    scale_in_control {
-      time_window_sec = 3600
-      max_scaled_in_replicas {
-        fixed = 1
-      }
     }
   }
 }

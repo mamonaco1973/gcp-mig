@@ -13,6 +13,13 @@ resource "google_compute_global_address" "lb_ip" {
   name = "mig-lb-ip"
 }
 
+# GCP's control plane reports the health check as created before the backend
+# service API can actually use it. A 30-second pause gives it time to settle.
+resource "time_sleep" "health_check_settle" {
+  depends_on      = [google_compute_health_check.http]
+  create_duration = "30s"
+}
+
 # Backend service connects the LB to the MIG. UTILIZATION balancing mode
 # distributes requests based on instance CPU load rather than connection count.
 resource "google_compute_backend_service" "main" {
@@ -29,6 +36,8 @@ resource "google_compute_backend_service" "main" {
     group          = google_compute_region_instance_group_manager.main.instance_group
     balancing_mode = "UTILIZATION"
   }
+
+  depends_on = [time_sleep.health_check_settle]
 }
 
 resource "google_compute_url_map" "main" {
