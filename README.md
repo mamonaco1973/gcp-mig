@@ -70,7 +70,7 @@ When the deployment completes, the following resources are created:
   - Layer 7 per-request load balancing — even distribution across instances
 
 - **Managed Instance Group:**
-  - Ubuntu 22.04 LTS, e2-micro, regional MIG spread across all us-central1 zones
+  - Ubuntu 24.04 LTS, e2-micro, regional MIG spread across all us-central1 zones
   - min 1, desired 4, max 6 instances
   - Apache installed via startup script; displays GCP metadata page
   - Regional autoscaler driving scale-out and scale-in on CPU

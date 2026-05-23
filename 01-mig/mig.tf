@@ -19,8 +19,8 @@ resource "google_compute_instance_template" "main" {
     auto_delete  = true
     boot         = true
 
-    # Ubuntu 22.04 LTS — matches the Azure VMSS demo for consistency
-    source_image = "ubuntu-os-cloud/ubuntu-2204-lts"
+    # Ubuntu 24.04 LTS — matches the Azure VMSS demo for consistency
+    source_image = "ubuntu-os-cloud/ubuntu-2404-lts-amd64"
   }
 
   network_interface {
