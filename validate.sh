@@ -39,8 +39,8 @@ while true; do
     exit 1
   fi
 
-  echo "NOTE: No response yet — retrying in 10s (${ELAPSED}s elapsed)..."
-  sleep 10
+  echo "NOTE: No response yet — retrying in 30s (${ELAPSED}s elapsed)..."
+  sleep 30
   ELAPSED=$((ELAPSED + 10))
 done
 
