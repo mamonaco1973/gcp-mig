@@ -23,23 +23,26 @@ echo "NOTE: Load balancer endpoint: http://${LB_IP}"
 # GCP's global HTTP LB and instance startup both take time — poll until ready
 # ------------------------------------------------------------------------------
 
-echo "NOTE: Waiting for HTTP response from load balancer..."
+echo "NOTE: Waiting for HTTP 200 from load balancer..."
 
 TIMEOUT=900
 ELAPSED=0
 
 while true; do
-  if curl -sf --max-time 5 "http://${LB_IP}/plain" &>/dev/null; then
-    echo "NOTE: Load balancer is responding."
+  HTTP_CODE=$(curl -o /dev/null -s -w "%{http_code}" --max-time 5 \
+    "http://${LB_IP}/plain" 2>/dev/null || echo "000")
+
+  if [ "${HTTP_CODE}" = "200" ]; then
+    echo "NOTE: Load balancer returned HTTP 200."
     break
   fi
 
   if [ "${ELAPSED}" -ge "${TIMEOUT}" ]; then
-    echo "ERROR: Timed out waiting for HTTP response after ${TIMEOUT}s."
+    echo "ERROR: Timed out waiting for HTTP 200 after ${TIMEOUT}s."
     exit 1
   fi
 
-  echo "NOTE: No response yet — retrying in 30s (${ELAPSED}s elapsed)..."
+  echo "NOTE: HTTP ${HTTP_CODE} — retrying in 30s (${ELAPSED}s elapsed)..."
   sleep 30
   ELAPSED=$((ELAPSED + 30))
 done
