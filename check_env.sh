@@ -45,3 +45,10 @@ fi
 echo "NOTE: credentials.json found."
 gcloud auth activate-service-account --key-file="./credentials.json"
 echo "NOTE: Service account activated successfully."
+
+# ------------------------------------------------------------------------------
+# API Setup
+# Enable required GCP APIs before Terraform runs — idempotent, safe to re-run.
+# ------------------------------------------------------------------------------
+
+./api_setup.sh
