@@ -27,24 +27,31 @@ echo "NOTE: Waiting for HTTP 200 from load balancer..."
 
 TIMEOUT=900
 ELAPSED=0
+CONSECUTIVE=0
 
 while true; do
   HTTP_CODE=$(curl -o /dev/null -s -w "%{http_code}" --max-time 5 \
     "http://${LB_IP}/plain" 2>/dev/null || echo "000")
 
   if [ "${HTTP_CODE}" = "200" ]; then
-    echo "NOTE: Load balancer returned HTTP 200."
-    break
+    CONSECUTIVE=$((CONSECUTIVE + 1))
+    echo "NOTE: HTTP 200 (${CONSECUTIVE}/10 consecutive)..."
+    # Require 10 consecutive 200s — ensures all backends are healthy before
+    # sampling, not just the first one to pass health checks
+    if [ "${CONSECUTIVE}" -ge 10 ]; then
+      echo "NOTE: Load balancer is fully healthy."
+      break
+    fi
+  else
+    CONSECUTIVE=0
+    if [ "${ELAPSED}" -ge "${TIMEOUT}" ]; then
+      echo "ERROR: Timed out waiting for HTTP 200 after ${TIMEOUT}s."
+      exit 1
+    fi
+    echo "NOTE: HTTP ${HTTP_CODE} — retrying in 30s (${ELAPSED}s elapsed)..."
+    sleep 30
+    ELAPSED=$((ELAPSED + 30))
   fi
-
-  if [ "${ELAPSED}" -ge "${TIMEOUT}" ]; then
-    echo "ERROR: Timed out waiting for HTTP 200 after ${TIMEOUT}s."
-    exit 1
-  fi
-
-  echo "NOTE: HTTP ${HTTP_CODE} — retrying in 30s (${ELAPSED}s elapsed)..."
-  sleep 30
-  ELAPSED=$((ELAPSED + 30))
 done
 
 # ------------------------------------------------------------------------------
