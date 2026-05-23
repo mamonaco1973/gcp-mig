@@ -2,9 +2,13 @@
 
 This project demonstrates a minimal GCP Managed Instance Group (MIG) deployment using Terraform. It provisions a fleet of Apache web servers behind a GCP HTTP(S) Load Balancer, with each instance displaying its own metadata — private IP, instance name, zone, and machine type — on a styled page.
 
+![GCP diagram](gcp-mig.png)
+
 Instances run on e2-micro Ubuntu VMs and are never directly reachable from the internet. All inbound traffic flows through the global HTTP load balancer. Cloud NAT provides outbound internet access for package installation. A regional autoscaler drives automatic scale-out and scale-in between 1 and 6 instances based on CPU utilization.
 
 This solution is ideal for understanding the fundamentals of GCP Managed Instance Groups without the complexity of application-specific configuration. It uses no Packer, no custom image, and deploys in a single Terraform phase.
+
+![mig](mig.png)
 
 ## Prerequisites
 
